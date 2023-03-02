@@ -168,7 +168,6 @@ class Trainer:
                 elapsed_time.append(end - start)
         print(np.mean(elapsed_time))
         
-
     def warmup(self, data_loader):
         if self.cfg.warmup_epoch == 0:
             return
@@ -263,26 +262,32 @@ class Trainer:
         preds = torch.concat(preds, axis=0)
         return preds
 
-    def get_detection_auroc(self, preds, mask):
+    # def get_detection_auroc(self, preds, mask):
+    def get_detection_auroc(self, preds, is_anomaly):
         image_score = np.max(preds.numpy(), axis=(1, 2, 3))
-        label = np.max(mask, axis=(1, 2, 3))
+        # label = np.max(mask, axis=(1, 2, 3))
+        label = is_anomaly
         auroc = roc_auc_score(label, image_score)
         return auroc
 
     def get_segmentation_auroc(self, preds, masks):
-        pixel_socre = self.upsample(preds, size=self.d.original_image_size)
-        auroc = roc_auc_score(masks.flatten(), pixel_socre.flatten())
+        pixel_score = self.upsample(preds, size=self.d.original_image_size)
+        auroc = roc_auc_score(masks.flatten(), pixel_score.flatten())
         return auroc
 
     def calc_auroc(self, dataset):
         self.d = dataset
-        images, mask = dataset.load_test()
-        mask = torch.stack(mask).numpy()
+        # images, mask = dataset.load_test()
+        images, is_anomaly = dataset.load_test()
+        # mask = torch.stack(mask).numpy()
         pred = self.pred(images)
         pred_min, pred_max = torch.min(pred), torch.max(pred)
         pred = (pred - pred_min) / (pred_max - pred_min)
-        detection_auroc = self.get_detection_auroc(pred, mask)
-        segmentation_auroc = self.get_segmentation_auroc(pred, mask)
+        print(pred)
+        # detection_auroc = self.get_detection_auroc(pred, mask)
+        detection_auroc = self.get_detection_auroc(pred, is_anomaly)
+        # segmentation_auroc = self.get_segmentation_auroc(pred, mask)
+        segmentation_auroc = 0.0
         return detection_auroc, segmentation_auroc
 
     def run(self, dataset):

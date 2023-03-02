@@ -136,9 +136,9 @@ class Tester:
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("weight_path", type=str)
-    parser.add_argument("image_path", type=str)
-    parser.add_argument("save_path", type=str)
+    parser.add_argument("weights", default="./weights", type=str)
+    parser.add_argument("dataset", default="./dataset/polymer-insulator-upper-shackle/teste/rust", type=str)
+    parser.add_argument("images", default="./images_test", type=str)
     args = parser.parse_args()
     device = torch.device(cfg.device)
     tester = Tester(args.weight_path, cfg)

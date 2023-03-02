@@ -5,11 +5,13 @@ import torch
 from torch.utils.data import Dataset
 import torchvision.io as tvio
 import torchvision.transforms as T
+import numpy as np
 
 class MVTec(Dataset):
     CATEGORY = [
-        "bottle", "cable", "capsule", "carpet", "grid", "hazelnut", "leather", "metal_nut", 
-        "pill", "screw", "tile", "toothbrush", "transistor", "wood", "zipper"
+        #"bottle", "cable", "capsule", "carpet", "grid", "hazelnut", "leather", "metal_nut", 
+        #"pill", "screw", "tile", "toothbrush", "transistor", "wood", "zipper", 
+        "polymer-insulator-upper-shackle"
     ]
     ImageSize = {
         "cait_m48_448": 448,
@@ -22,12 +24,12 @@ class MVTec(Dataset):
         self.device = device
         self.category = category
         self.path = os.path.join(self.cfg.mvtec_path, self.category)
-        self.train_pathes = glob(os.path.join(self.path, "train/good/*.png"))
+        self.train_pathes = glob(os.path.join(self.path, "train/good/*.jpg"))
         self.anomaly_category = os.listdir(os.path.join(self.path, "test"))
         self.original_image_size = tvio.read_image(self.train_pathes[0]).shape[1]
         self.image_size = self.ImageSize[self.cfg.backbone]
         self.transform = T.Compose([
-            T.Resize(self.image_size),
+            T.Resize((self.image_size, self.image_size)),
             T.Lambda(lambda im: im / 255.0)
         ])
         if preload:
@@ -64,47 +66,63 @@ class MVTec(Dataset):
     def load_test(self, skip_normal=False, only_normal=False):
 
         if only_normal:
-            image_pathes = glob(os.path.join(self.path, "test/good/*.png"))
-            images, masks = self.load_normal(image_pathes)
-            return images, masks
+            image_pathes = glob(os.path.join(self.path, "test/good/*.jpg"))
+            # images, masks = self.load_normal(image_pathes)
+            images, labels = self.load_normal(image_pathes)
+            #return images, masks
+            return images, labels
 
         images = [] # [n, 3, 448, 448]
-        masks = [] # [n, 1, 448, 448]
+        # masks = [] # [n, 1, 448, 448]
+        labels = [] # [n]
 
         for ac in self.anomaly_category:
             if ac == "good" and skip_normal:
                 continue
-            image_pathes = glob(os.path.join(self.path, "test/{}/*.png".format(ac)))
+            image_pathes = glob(os.path.join(self.path, "test/{}/*.jpg".format(ac)))
 
             if ac == "good":
-                loaded_images, loaded_masks = self.load_normal(image_pathes)
+                loaded_images, loaded_labels = self.load_normal(image_pathes)
+                #print('good', (loaded_labels))
             else:
-                image_name = [p.split("/")[-1].split(".")[0] for p in image_pathes]
-                mask_pathes = [os.path.join(self.path, "ground_truth", ac, n + "_mask.png") for n in image_name]
-                loaded_images, loaded_masks = self.load_anomaly(image_pathes, mask_pathes)
+                # image_name = [p.split("/")[-1].split(".")[0] for p in image_pathes]
+                # mask_pathes = [os.path.join(self.path, "ground_truth", ac, n + "_mask.png") for n in image_name]
+                # loaded_images, loaded_masks = self.load_anomaly(image_pathes, mask_pathes)
+                image_labels = [1.0] * len(image_pathes)
+                loaded_images, loaded_labels = self.load_anomaly(image_pathes, image_labels)
+                #print('anomaly',loaded_labels)
             images.extend(loaded_images)
-            masks.extend(loaded_masks)
-        return images, masks
+            # masks.extend(loaded_masks)
+            labels.extend(loaded_labels)
+        # return images, masks
+        return images, labels
 
-    def load_anomaly(self, image_pathes, mask_pathes):
+    # def load_anomaly(self, image_pathes, mask_pathes):
+    def load_anomaly(self, image_pathes, image_labels):
         images = []
         masks = []
         for p in image_pathes:
             images.append(self.load_trans(p))
-        for p in mask_pathes:
-            masks.append(tvio.read_image(p))
+        # for p in mask_pathes:
+        #     masks.append(tvio.read_image(p))
+        image_labels = torch.tensor(image_labels)
         shape = images[0].shape
         if shape[0] != 3:
             images = [im.expand(3, -1, -1) for im in images]
-        return images, masks
+        # return images , masks
+        return images, image_labels
 
     def load_normal(self, pathes):
         images = []
-        masks = []
+        # masks = []
+        labels = []
         for p in pathes:
             images.append(self.load_trans(p))
-            masks.append(torch.zeros((1, self.original_image_size, self.original_image_size)))
+            # masks.append(torch.zeros((1, self.original_image_size, self.original_image_size)))
+            labels.append(torch.tensor(0.0))
+        labels = torch.tensor(labels)
         shape = images[0].shape
         if shape[0] != 3:
             images = [im.expand(3, -1, -1) for im in images]
-        return images, masks
+        # return images, masks
+        return images, labels
