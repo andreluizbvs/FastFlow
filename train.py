@@ -283,7 +283,6 @@ class Trainer:
         pred = self.pred(images)
         pred_min, pred_max = torch.min(pred), torch.max(pred)
         pred = (pred - pred_min) / (pred_max - pred_min)
-        print(pred)
         # detection_auroc = self.get_detection_auroc(pred, mask)
         detection_auroc = self.get_detection_auroc(pred, is_anomaly)
         # segmentation_auroc = self.get_segmentation_auroc(pred, mask)
